@@ -10,3 +10,17 @@ This project uses Cabal, a build system for Haskell. To run the project, follow 
 2. Navigate to the project directory.
 3. Run `cabal build` to build the project.
 4. Run `cabal run` to execute the project.
+
+## Current Progress
+These are the chapters from the book, I'll be using this to track progress:
+
+- [x] [Scanning](https://craftinginterpreters.com/scanning.html)
+- [ ] [Representing Code](https://craftinginterpreters.com/representing-code.html)
+- [ ] [Parsing Expressions](https://craftinginterpreters.com/parsing-expressions.html)
+- [ ] [Evaluating Expressions](https://craftinginterpreters.com/evaluating-expressions.html)
+- [ ] [Statements and State](https://craftinginterpreters.com/statements-and-state.html)
+- [ ] [Control Flow](https://craftinginterpreters.com/control-flow.html)
+- [ ] [Functions](https://craftinginterpreters.com/functions.html)
+- [ ] [Resolving and Binding](https://craftinginterpreters.com/resolving-and-binding.html)
+- [ ] [Classes](https://craftinginterpreters.com/classes.html)
+- [ ] [Inheritance](https://craftinginterpreters.com/inheritance.html)
