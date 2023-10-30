@@ -1,0 +1,6 @@
+# Haskell build folder
+dist-newstyle/
+
+# System files
+.DS_Store
+Thumbs.db
