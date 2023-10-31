@@ -7,6 +7,7 @@ module Main where
 import Control.Exception (catch)
 import Data.Foldable (traverse_)
 import Data.Functor (($>))
+import qualified Data.Sequence as Seq
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import GHC.IO.Handle (hFlush)
@@ -41,16 +42,16 @@ runFile path = do
   file <- TIO.readFile path
   errors <- run file
   case errors of
-    [] -> pure ()
+    Seq.Empty -> pure ()
     _ -> do
       traverse_ report errors
       exitFailure
 
-run :: T.Text -> IO [ScanErr]
+run :: T.Text -> IO (Seq.Seq ScanErr)
 run source = do
   case scanTokens source of
-    Right tokens -> traverse_ print tokens $> []
-    Left errors -> pure [errors]
+    Right tokens -> traverse_ print tokens $> mempty
+    Left errors -> pure errors
 
 main :: IO ()
 main = do

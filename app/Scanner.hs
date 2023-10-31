@@ -66,10 +66,17 @@ data TokenType
 data Token = Token {tokenType :: TokenType, line :: Int}
   deriving (Show)
 
-data ScannerState = ScannerState {start :: Int, current :: Int, line :: Int, tokens :: Seq Token, source :: T.Text}
+data ScannerState = ScannerState
+  { start :: Int,
+    current :: Int,
+    line :: Int,
+    tokens :: Seq Token,
+    source :: T.Text,
+    errors :: Maybe (Seq ScanErr)
+  }
   deriving (Show)
 
-type Scanner a = StateT ScannerState (Either ScanErr) a
+type Scanner a = State ScannerState a
 
 whenM :: Monad m => m Bool -> m () -> m ()
 whenM mb m = mb >>= \b -> when b m
@@ -83,13 +90,19 @@ isAtEnd = do
 
 err :: String -> Scanner ()
 err s = do
-  st <- get
-  lift $ Left (ScanErr (st.line) s "")
+  modify $ \st ->
+    st
+      { errors = case st.errors of
+          Just e -> Just $ e |> ScanErr (st.line) s ""
+          Nothing -> Just $ mempty |> ScanErr (st.line) s ""
+      }
 
-scanTokens :: T.Text -> Either ScanErr (Seq Token)
-scanTokens source = case runStateT scanTokens' (ScannerState 0 0 1 mempty source) of
-  Right (_, b) -> Right b.tokens
-  Left l -> Left l
+scanTokens :: T.Text -> Either (Seq ScanErr) (Seq Token)
+scanTokens source =
+  let (_, b) = runState scanTokens' (ScannerState 0 0 1 mempty source Nothing)
+   in case b.errors of
+        Just e -> Left e
+        Nothing -> Right b.tokens
   where
     scanTokens' :: Scanner ()
     scanTokens' = whileM (not <$> isAtEnd) $ do
