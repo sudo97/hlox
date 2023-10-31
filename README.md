@@ -15,7 +15,7 @@ This project uses Cabal, a build system for Haskell. To run the project, follow 
 These are the chapters from the book, I'll be using this to track progress:
 
 - [x] [Scanning](https://craftinginterpreters.com/scanning.html)
-- [ ] [Representing Code](https://craftinginterpreters.com/representing-code.html)
+- [x] [Representing Code](https://craftinginterpreters.com/representing-code.html)
 - [ ] [Parsing Expressions](https://craftinginterpreters.com/parsing-expressions.html)
 - [ ] [Evaluating Expressions](https://craftinginterpreters.com/evaluating-expressions.html)
 - [ ] [Statements and State](https://craftinginterpreters.com/statements-and-state.html)
