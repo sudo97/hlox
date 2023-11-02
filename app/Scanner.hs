@@ -61,7 +61,7 @@ data TokenType
   | Var
   | While
   | EOF
-  deriving (Show)
+  deriving (Show, Eq)
 
 data Token = Token {tokenType :: TokenType, line :: Int}
   deriving (Show)
