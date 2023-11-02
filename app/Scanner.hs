@@ -91,7 +91,7 @@ isAtEnd = do
 
 err :: String -> Scanner ()
 err s = do
-  modify $ \st ->
+  modify' $ \st ->
     st
       { errors = case st.errors of
           Just e -> Just $ e |> ScanErr (st.line) s ""
@@ -107,7 +107,7 @@ scanTokens source =
   where
     scanTokens' :: Scanner ()
     scanTokens' = whileM (not <$> isAtEnd) $ do
-      modify $ \st -> st {start = current st}
+      modify' $ \st -> st {start = current st}
       scanToken
 
 advance :: Scanner Char
@@ -150,7 +150,7 @@ string :: Scanner ()
 string = do
   let cond = (&&) <$> (not <$> isAtEnd) <*> ((/= '"') <$> peek)
   whileM cond $ do
-    whenM ((== '\n') <$> peek) . modify $ \ScannerState {..} -> ScannerState {line = line + 1, ..}
+    whenM ((== '\n') <$> peek) . modify' $ \ScannerState {..} -> ScannerState {line = line + 1, ..}
     advance $> ()
 
   end <- isAtEnd
@@ -245,7 +245,7 @@ scanToken = do
     ' ' -> pure ()
     '\r' -> pure ()
     '\t' -> pure ()
-    '\n' -> modify $ \ScannerState {..} -> ScannerState {line = line + 1, ..}
+    '\n' -> modify' $ \ScannerState {..} -> ScannerState {line = line + 1, ..}
     '"' -> string
     c' | isDigit c' -> number
     c' | isAlpha c' -> identifier

@@ -32,10 +32,10 @@ data ScannerState = ScannerState
 type Scanner a = State ScannerState a
 
 advance :: T.Text -> Scanner ()
-advance source = unless (T.null source) $ modify (\ScannerState {..} -> ScannerState {current = current + 1, ..})
+advance source = unless (T.null source) $ modify' (\ScannerState {..} -> ScannerState {current = current + 1, ..})
 
 newline :: Scanner ()
-newline = modify (\ScannerState {..} -> ScannerState {line = line + 1, current = 0})
+newline = modify' (\ScannerState {..} -> ScannerState {line = line + 1, current = 0})
 
 mktok :: TokenType -> Scanner ([Either ScanErr Token] -> [Either ScanErr Token])
 mktok t = do
