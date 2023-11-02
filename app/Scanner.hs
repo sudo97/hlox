@@ -14,6 +14,7 @@ where
 
 import Control.Monad.State
 import Data.Char (isAlpha, isAlphaNum, isDigit)
+import Data.Foldable (Foldable (..))
 import Data.Functor (($>))
 import Data.Sequence (Seq, (|>))
 import qualified Data.Text as T
@@ -97,12 +98,12 @@ err s = do
           Nothing -> Just $ mempty |> ScanErr (st.line) s ""
       }
 
-scanTokens :: T.Text -> Either (Seq ScanErr) (Seq Token)
+scanTokens :: T.Text -> Either [ScanErr] [Token]
 scanTokens source =
   let (_, b) = runState scanTokens' (ScannerState 0 0 1 mempty source Nothing)
    in case b.errors of
-        Just e -> Left e
-        Nothing -> Right b.tokens
+        Just e -> Left (toList e)
+        Nothing -> Right (toList b.tokens)
   where
     scanTokens' :: Scanner ()
     scanTokens' = whileM (not <$> isAtEnd) $ do
