@@ -50,7 +50,9 @@ scanner source =
         (l, _) -> Left l
 
 scanner' :: T.Text -> Scanner [Either ScanErr Token]
-scanner' "" = pure []
+scanner' "" = do
+  ScannerState {..} <- get
+  pure [Right $ Token EOF line current]
 scanner' source = case (T.head source, T.tail source) of
   ('(', t) -> mktok LeftParen <*> scanner' t <* advance t
   (')', t) -> mktok RightParen <*> scanner' t <* advance t

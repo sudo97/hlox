@@ -3,7 +3,7 @@
 module AST where
 
 import qualified Data.Text as T
-import Scanner (Token (..))
+import IdiomaticScanner (Token (..))
 
 data Expr
   = Binary Expr Token Expr

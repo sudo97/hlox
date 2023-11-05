@@ -4,19 +4,24 @@
 
 module Main where
 
+import AST (printExpr)
 import Control.Exception (catch)
 import Data.Foldable (traverse_)
 import Data.Functor (($>))
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import GHC.IO.Handle (hFlush)
-import Scanner (ScanErr (..), scanTokens)
+import IdiomaticScanner (ScanErr (..), Token (..), scanner)
+import Parser (ParseError (ParseError), parse)
 import System.Environment (getArgs)
 import System.Exit (exitFailure)
 import System.IO (hPutStrLn, stderr, stdout)
 
-report :: ScanErr -> IO ()
-report (ScanErr {line, message, place}) = hPutStrLn stderr $ "[line " ++ show line ++ "] Error" ++ place ++ ": " ++ message
+report :: Either ScanErr ParseError -> IO ()
+report (Left (ScanErr {line, message, place})) = hPutStrLn stderr $ "[line " ++ show line ++ "] Error: " ++ show place ++ ": " ++ message
+report (Right (ParseError msg tok)) = case tok of
+  Just (Token {line}) -> hPutStrLn stderr $ "[line " ++ show line ++ "] Error: " ++ msg
+  _ -> hPutStrLn stderr $ "Error: " ++ msg
 
 runPrompt :: IO ()
 runPrompt = catch loop handler
@@ -46,11 +51,17 @@ runFile path = do
       traverse_ report errors
       exitFailure
 
-run :: T.Text -> IO [ScanErr]
+run :: T.Text -> IO [Either ScanErr ParseError]
 run source = do
-  case scanTokens source of
-    Right tokens -> traverse_ print tokens $> mempty
-    Left errors -> pure errors
+  case scanner source of
+    Right tokens -> do
+      case parse tokens of
+        Right expr -> do
+          putStrLn "Success!"
+          print expr
+          TIO.putStrLn (printExpr expr) $> []
+        Left errors -> pure [Right errors]
+    Left errors -> pure $ Left <$> errors
 
 main :: IO ()
 main = do
