@@ -61,7 +61,7 @@ executable hlox
     main-is:          Main.hs
 
     -- Modules included in this executable, other than Main.
-    other-modules: Scanner, AST, IdiomaticScanner, Parser
+    other-modules: Scanner, AST, IdiomaticScanner, Parser, FunctionalParser
 
     -- LANGUAGE extensions used by modules in this package.
     -- other-extensions: 
@@ -71,6 +71,7 @@ executable hlox
                      ,text
                      ,mtl
                      ,containers
+                     ,parsec
 
     -- Directories containing source files.
     hs-source-dirs:   app

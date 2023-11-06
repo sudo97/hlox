@@ -10,3 +10,8 @@ I am considering several ways to implement a more interesting parser. I have two
 2. Use Parser Combinators that work on the list of tokens. This approach is easier and more common for Haskell.
 
 Frankly, I like idea #1 because I came up with it myself. I like idea #2 because it is likely to be a more viable solution. I am not sure how the book approach is going to evolve, so my generalization could be wrong. I'll revisit this document once I know more. Maybe I'll implement both ideas.
+
+
+## Parser Combinator approach (Next day update)
+
+I decided to write functional parser, since it's very common for Haskell. you can see how the grammar almost mirrors the code. I am still thinking about building a data-structure to represent grammar
