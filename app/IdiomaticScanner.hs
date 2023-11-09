@@ -13,7 +13,7 @@ import Scanner (TokenType (..))
 
 -- | This scanner is an alternative to the one presented in the book "Crafting Interpreters".
 -- | It is designed to be more idiomatic to Haskell.
-data ScanErr = ScanErr {line :: Int, message :: String, place :: Int}
+data ScanError = ScanError {line :: Int, message :: String, place :: Int}
   deriving (Show)
 
 data Token = Token
@@ -37,19 +37,19 @@ advance source = unless (T.null source) $ modify' (\ScannerState {..} -> Scanner
 newline :: Scanner ()
 newline = modify' (\ScannerState {..} -> ScannerState {line = line + 1, current = 0})
 
-mktok :: TokenType -> Scanner ([Either ScanErr Token] -> [Either ScanErr Token])
+mktok :: TokenType -> Scanner ([Either ScanError Token] -> [Either ScanError Token])
 mktok t = do
   ScannerState {..} <- get
   pure ((Right $ Token t line current) :)
 
-scanner :: T.Text -> Either [ScanErr] [Token]
+scanner :: T.Text -> Either [ScanError] [Token]
 scanner source =
   let result = evalState (scanner' source) (ScannerState 0 1)
    in case partitionEithers result of
         ([], r) -> Right r
         (l, _) -> Left l
 
-scanner' :: T.Text -> Scanner [Either ScanErr Token]
+scanner' :: T.Text -> Scanner [Either ScanError Token]
 scanner' "" = do
   ScannerState {..} <- get
   pure [Right $ Token EOF line current]
@@ -109,10 +109,10 @@ scanner' source = case (T.head source, T.tail source) of
     (res :) <$> scanner' t'
   (c, t) -> do
     ScannerState {..} <- get
-    let err = Left $ ScanErr line ("Unexpected character: " ++ [c]) current
+    let err = Left $ ScanError line ("Unexpected character: " ++ [c]) current
     (err :) <$> scanner' t
 
-string :: T.Text -> Scanner (Either ScanErr Token, T.Text)
+string :: T.Text -> Scanner (Either ScanError Token, T.Text)
 string source = do
   let (str, t) = T.breakOn "\"" source
   ScannerState {..} <- get
@@ -120,12 +120,12 @@ string source = do
   let newCurrent = current + T.length (last $ T.lines str)
   put $ ScannerState {line = line + newLineCount, current = newCurrent, ..}
   if T.null t
-    then pure (Left $ ScanErr line "Unterminated string" current, t)
+    then pure (Left $ ScanError line "Unterminated string" current, t)
     else do
       advance t
       pure (Right $ Token (String str) line current, T.tail t)
 
-number :: T.Text -> Scanner (Either ScanErr Token, T.Text)
+number :: T.Text -> Scanner (Either ScanError Token, T.Text)
 number source = do
   let (num, t) = T.span isDigit source
   ScannerState {..} <- get
@@ -139,7 +139,7 @@ number source = do
       put $ ScannerState {current = newCurrent', ..}
       pure (Right $ Token (Number $ read $ T.unpack $ num <> "." <> num') line current, t')
 
-identifier :: T.Text -> Scanner (Either ScanErr Token, T.Text)
+identifier :: T.Text -> Scanner (Either ScanError Token, T.Text)
 identifier source = do
   let (ident, t) = T.span isAlphaNum source
   ScannerState {..} <- get

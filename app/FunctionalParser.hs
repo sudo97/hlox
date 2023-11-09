@@ -1,8 +1,9 @@
 module FunctionalParser where
 
-import AST
+import AST (Expr (..), LiteralValue (..))
 import qualified Data.Text as T
 import IdiomaticScanner (Token (..), scanner)
+import qualified Parser as P
 import Scanner (TokenType (..))
 import Text.Parsec
 import Text.Parsec.Pos (newPos)
@@ -30,8 +31,10 @@ expression = equality
     unary = (Unary <$> (bang <|> minus) <*> unary) <|> primary
     primary = number <|> stringP <|> bool <|> nil <|> grouping
 
-parseExpr :: [Token] -> Either ParseError Expr
-parseExpr = parse expression ""
+parseExpr :: [Token] -> Either [P.LoxParseError] Expr
+parseExpr source = case parse expression "" source of
+  Left err -> Left [P.LoxParseError (show err) Nothing]
+  Right x -> Right x
 
 -- token parsers, not interesting
 
@@ -176,5 +179,5 @@ posFromTok :: Token -> SourcePos
 posFromTok (Token {line = l, column = c}) = newPos "" l c
 
 -- For debugging only
-helper :: T.Text -> Either ParseError Expr
+helper :: T.Text -> Either [P.LoxParseError] Expr
 helper source = let (Right t) = scanner source in parseExpr t

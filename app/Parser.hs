@@ -23,13 +23,13 @@ data ParserState = ParserState
   }
   deriving (Show, Eq)
 
-data ParseError = ParseError
+data LoxParseError = LoxParseError
   { message :: String,
     token :: Maybe Token
   }
   deriving (Show, Eq)
 
-type Parser a = StateT ParserState (Either ParseError) a
+type Parser a = StateT ParserState (Either LoxParseError) a
 
 expression :: Parser Expr
 expression = equality
@@ -103,14 +103,14 @@ primary = do
                       consume RightParen "Expect ')' after expression." $> Grouping expr
                     else do
                       t <- peek
-                      lift $ Left $ ParseError "Expect expression." (Just t)
+                      lift $ Left $ LoxParseError "Expect expression." (Just t)
 
 consume :: TokenType -> String -> Parser Token
 consume tt errormsg = do
   checks <- check tt
   if checks
     then advance
-    else peek >>= lift . Left . ParseError errormsg . Just
+    else peek >>= lift . Left . LoxParseError errormsg . Just
 
 match :: [TokenType] -> Parser Bool
 match [] = pure False
@@ -133,7 +133,7 @@ previous = do
   ParserState {tokens, current} <- get
   case tokens !? (current - 1) of
     Just t -> pure t
-    Nothing -> peek >>= lift . Left . ParseError "Unexpected end of file." . Just
+    Nothing -> peek >>= lift . Left . LoxParseError "Unexpected end of file." . Just
 
 isAtEnd :: Parser Bool
 isAtEnd = (== EOF) . tokenType <$> peek
@@ -143,7 +143,7 @@ peek = do
   ParserState {tokens, current} <- get
   case tokens !? current of
     Just t -> pure t
-    Nothing -> lift $ Left $ ParseError ("peek failed, tokens: " ++ show tokens ++ " current: " ++ show current) Nothing
+    Nothing -> lift $ Left $ LoxParseError ("peek failed, tokens: " ++ show tokens ++ " current: " ++ show current) Nothing
 
-parse :: [Token] -> Either ParseError Expr
+parse :: [Token] -> Either LoxParseError Expr
 parse tokens = evalStateT expression ParserState {tokens = fromList tokens, current = 0}

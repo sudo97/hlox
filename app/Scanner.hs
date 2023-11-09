@@ -6,7 +6,7 @@
 
 module Scanner
   ( scanTokens,
-    ScanErr (..),
+    ScanError (..),
     TokenType (..),
     Token (..),
   )
@@ -19,7 +19,7 @@ import Data.Functor (($>))
 import Data.Sequence (Seq, (|>))
 import qualified Data.Text as T
 
-data ScanErr = ScanErr {line :: Int, message :: String, place :: String}
+data ScanError = ScanError {line :: Int, message :: String, place :: String}
   deriving (Show)
 
 data TokenType
@@ -73,7 +73,7 @@ data ScannerState = ScannerState
     line :: Int,
     tokens :: Seq Token,
     source :: T.Text,
-    errors :: Maybe (Seq ScanErr)
+    errors :: Maybe (Seq ScanError)
   }
   deriving (Show)
 
@@ -94,11 +94,11 @@ err s = do
   modify' $ \st ->
     st
       { errors = case st.errors of
-          Just e -> Just $ e |> ScanErr (st.line) s ""
-          Nothing -> Just $ mempty |> ScanErr (st.line) s ""
+          Just e -> Just $ e |> ScanError (st.line) s ""
+          Nothing -> Just $ mempty |> ScanError (st.line) s ""
       }
 
-scanTokens :: T.Text -> Either [ScanErr] [Token]
+scanTokens :: T.Text -> Either [ScanError] [Token]
 scanTokens source =
   let (_, b) = runState scanTokens' (ScannerState 0 0 1 mempty source Nothing)
    in case b.errors of
