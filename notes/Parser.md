@@ -15,3 +15,9 @@ Frankly, I like idea #1 because I came up with it myself. I like idea #2 because
 ## Parser Combinator approach (Next day update)
 
 I decided to write functional parser, since it's very common for Haskell. you can see how the grammar almost mirrors the code. I am still thinking about building a data-structure to represent grammar
+
+## UPD Few days later
+
+My fellow haskellers tell me I should use Parser Combinator and for Synctonization I should use additional variant in AST, special case `ErrorNode` that could be parsed as anything til the end of the statement.
+
+I won't be doing that for now, but will try it later as I go.
