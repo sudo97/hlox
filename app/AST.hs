@@ -78,7 +78,8 @@ isTruthy _ = True
 printLiteral :: LiteralValue -> T.Text
 printLiteral (StringValue value) = T.pack $ show value
 printLiteral (NumberValue value) = T.pack $ show value
-printLiteral (BoolValue value) = T.pack $ show value
+printLiteral (BoolValue True) = "true"
+printLiteral (BoolValue False) = "false"
 printLiteral NilValue = "nil"
 
 printExpr :: Expr -> T.Text
