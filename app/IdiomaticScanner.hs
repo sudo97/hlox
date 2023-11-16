@@ -155,7 +155,7 @@ identifier source = do
     "if" -> (Right $ Token If line current, t)
     "nil" -> (Right $ Token Nil line current, t)
     "or" -> (Right $ Token Or line current, t)
-    "print" -> (Right $ Token Print line current, t)
+    "print" -> (Right $ Token PrintTok line current, t)
     "return" -> (Right $ Token Return line current, t)
     "super" -> (Right $ Token Super line current, t)
     "this" -> (Right $ Token This line current, t)
@@ -167,7 +167,7 @@ identifier source = do
 simpleIncompleteTest :: IO ()
 simpleIncompleteTest = do
   let input = "var x = 10; print x;"
-  let expectedTokens = [Token Var 1 0, Token (Identifier "x") 1 4, Token Equal 1 6, Token (Number 10) 1 8, Token Semicolon 1 11, Token Print 1 12, Token (Identifier "x") 1 18, Token Semicolon 1 19]
+  let expectedTokens = [Token Var 1 0, Token (Identifier "x") 1 4, Token Equal 1 6, Token (Number 10) 1 8, Token Semicolon 1 11, Token PrintTok 1 12, Token (Identifier "x") 1 18, Token Semicolon 1 19]
   case scanner input of
     (Right tokens) -> do
       traverse_

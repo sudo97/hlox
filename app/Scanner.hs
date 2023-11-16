@@ -54,7 +54,7 @@ data TokenType
   | If
   | Nil
   | Or
-  | Print
+  | PrintTok
   | Return
   | Super
   | This
@@ -201,7 +201,7 @@ identifier = do
     "if" -> addToken If
     "nil" -> addToken Nil
     "or" -> addToken Or
-    "print" -> addToken Print
+    "print" -> addToken PrintTok
     "return" -> addToken Return
     "super" -> addToken Super
     "this" -> addToken This

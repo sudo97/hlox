@@ -1,25 +1,53 @@
+{-# LANGUAGE MultiParamTypeClasses #-}
+
 module FunctionalParser where
 
-import AST (Expr (..), LiteralValue (..))
+import Data.List (partition)
 import qualified Data.Text as T
 import IdiomaticScanner (Token (..), scanner)
+import Parser (Expr (..), LiteralValue (..), Stmt (..))
 import qualified Parser as P
 import Scanner (TokenType (..))
 import Text.Parsec
 import Text.Parsec.Pos (newPos)
+import Text.Parsec.Prim ()
 
 type Parser a = Parsec [Token] () a
 
+-- | The grammar for the parser is now:
+-- >
+-- > program   -> statement* EOF ;
+-- >
+-- > statement -> exprStmt
+-- >              | printStmt ;
+-- >
+-- > exprStmt  -> expression ";" ;
+-- > printStmt -> "print" expression ";" ;
+program :: Parser [Stmt]
+program = manyTill (statement <|> invalidStmt) eof'
+  where
+    statement = expression' <|> printStmt
+    expression' = Expression <$> (try expression <* semicolon)
+    printStmt = Parser.Print <$> (printTok *> expression <* semicolon)
+    invalidStmt = do
+      -- This is ugly. We basically re-parse the statement, knowing
+      -- that it will fail, but this time internally to be able to
+      -- catch the error and return it as an Invalid Stmt.
+      stm <- (\xs x -> xs ++ [x]) <$> many notSemicolon <*> semicolon
+      case parse statement "" stm of
+        Left err -> pure $ InvalidStmt (P.LoxParseError (show err) Nothing)
+        Right _ -> error "This is impossible"
+
 -- | Compare this to the grammar from the book:
 --
--- > expression     → equality ;
--- > equality       → comparison ( ( "!=" | "==" ) comparison )* ;
--- > comparison     → term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
--- > term           → factor ( ( "-" | "+" ) factor )* ;
--- > factor         → unary ( ( "/" | "*" ) unary )* ;
--- > unary          → ( "!" | "-" ) unary
+-- > expression -> equality ;
+-- > equality   -> comparison ( ( "!=" | "==" ) comparison )* ;
+-- > comparison -> term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
+-- > term       -> factor ( ( "-" | "+" ) factor )* ;
+-- > factor     -> unary ( ( "/" | "*" ) unary )* ;
+-- > unary      -> ( "!" | "-" ) unary
 -- >               | primary ;
--- > primary        → NUMBER | STRING | "true" | "false" | "nil"
+-- > primary    -> NUMBER | STRING | "true" | "false" | "nil"
 -- >               | "(" expression ")" ;
 expression :: Parser Expr
 expression = equality
@@ -35,6 +63,24 @@ parseExpr :: [Token] -> Either [P.LoxParseError] Expr
 parseExpr source = case parse expression "" source of
   Left err -> Left [P.LoxParseError (show err) Nothing]
   Right x -> Right x
+
+parseProgram :: [Token] -> Either [P.LoxParseError] [Stmt]
+parseProgram source = case parse program "" source of
+  Left err -> Left [P.LoxParseError (show err) Nothing]
+  Right x ->
+    let (invalids, valids) = partition isInvalidStmt x
+     in if null invalids
+          then Right valids
+          else Left $ map extractError invalids
+    where
+      isInvalidStmt (InvalidStmt _) = True
+      isInvalidStmt _ = False
+      extractError (InvalidStmt (P.LoxParseError err _)) = P.LoxParseError err Nothing
+      extractError _ = error "This should never happen"
+
+-- For debugging only
+helper :: T.Text -> Either [P.LoxParseError] [Stmt]
+helper source = let (Right t) = scanner source in parseProgram t
 
 -- token parsers, not interesting
 
@@ -169,6 +215,30 @@ bangEqual = token show posFromTok testTok
     testTok t@(Token {tokenType = BangEqual}) = Just t
     testTok _ = Nothing
 
+printTok :: Parser Token
+printTok = token show posFromTok testTok
+  where
+    testTok t@(Token {tokenType = PrintTok}) = Just t
+    testTok _ = Nothing
+
+semicolon :: Parser Token
+semicolon = token show posFromTok testTok
+  where
+    testTok t@(Token {tokenType = Semicolon}) = Just t
+    testTok _ = Nothing
+
+notSemicolon :: Parser Token
+notSemicolon = token show posFromTok testTok
+  where
+    testTok (Token {tokenType = Semicolon}) = Nothing
+    testTok t = Just t
+
+eof' :: Parser Token
+eof' = token show posFromTok testTok
+  where
+    testTok t@(Token {tokenType = EOF}) = Just t
+    testTok _ = Nothing
+
 equalEqual :: Parser Token
 equalEqual = token show posFromTok testTok
   where
@@ -177,7 +247,3 @@ equalEqual = token show posFromTok testTok
 
 posFromTok :: Token -> SourcePos
 posFromTok (Token {line = l, column = c}) = newPos "" l c
-
--- For debugging only
-helper :: T.Text -> Either [P.LoxParseError] Expr
-helper source = let (Right t) = scanner source in parseExpr t

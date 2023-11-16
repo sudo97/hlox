@@ -1,21 +1,37 @@
 {-# LANGUAGE DuplicateRecordFields #-}
 {-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE NamedFieldPuns #-}
+{-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE RecordWildCards #-}
 
 module Parser where
 
-import AST
 import Control.Monad.State
+import Data.Foldable (traverse_)
 import Data.Functor (($>))
 import Data.Sequence (Seq, fromList, (!?))
 import qualified Data.Text as T
+import qualified Data.Text.IO as TIO
 import IdiomaticScanner (Token (..))
 import Scanner (TokenType (..))
+import System.IO
 
 -- As with Scanner, we'll be making stateful
 -- computations to match the book as close as possible,
 -- so we'll use the State monad.
+
+data Stmt
+  = Expression Expr
+  | Print Expr
+  | InvalidStmt LoxParseError
+  deriving (Show, Eq)
+
+data Expr
+  = Binary Expr Token Expr
+  | Grouping Expr
+  | Literal LiteralValue
+  | Unary Token Expr
+  deriving (Show, Eq)
 
 data ParserState = ParserState
   { tokens :: Seq Token,
@@ -147,3 +163,92 @@ peek = do
 
 parse :: [Token] -> Either LoxParseError Expr
 parse tokens = evalStateT expression ParserState {tokens = fromList tokens, current = 0}
+
+data LiteralValue
+  = StringValue String
+  | NumberValue Double
+  | BoolValue Bool
+  | NilValue
+  deriving (Show, Eq)
+
+data RuntimeError = RuntimeError
+  { message :: String,
+    token :: Token
+  }
+  deriving (Show, Eq)
+
+runProgram :: [Stmt] -> IO ()
+runProgram = traverse_ runStmt
+  where
+    runStmt :: Stmt -> IO ()
+    runStmt (InvalidStmt e) = error $ "This should never happen, some unhandled parsing error, this should actually have happened in the earlier stage" <> show e
+    runStmt (Print expr) = do
+      case evaluate expr of
+        Right value -> TIO.putStrLn $ printLiteral value
+        Left errors -> traverse_ (hPrint stderr) errors
+    runStmt (Expression expr) = do
+      case evaluate expr of
+        Right _ -> pure ()
+        Left errors -> traverse_ (hPrint stderr) errors
+
+evaluate :: Expr -> Either [RuntimeError] LiteralValue
+evaluate (Literal v) = pure v
+evaluate (Grouping expr) = evaluate expr
+evaluate (Unary tok@(Token {tokenType = operator}) expr) = case operator of
+  Minus -> do
+    expr' <- evaluate expr
+    case expr' of
+      NumberValue value -> pure $ NumberValue (-value)
+      _ -> Left [RuntimeError "Operand must be a number" tok]
+  Bang -> BoolValue . not . isTruthy <$> evaluate expr
+  _ -> Left [RuntimeError "Unknown unary operator, this is likely a parser error" tok]
+evaluate (Binary leftExpr tok@(Token {tokenType = operator}) rightExpr) = do
+  left <- evaluate leftExpr
+  right <- evaluate rightExpr
+  case operator of
+    Minus -> case (left, right) of
+      (NumberValue n, NumberValue n') -> pure $ NumberValue (n - n')
+      _ -> Left [RuntimeError "Operands must be numbers" tok]
+    Slash -> case (left, right) of
+      (NumberValue n, NumberValue n') -> pure $ NumberValue (n / n')
+      _ -> Left [RuntimeError "Operands must be numbers" tok]
+    Star -> case (left, right) of
+      (NumberValue n, NumberValue n') -> pure $ NumberValue (n * n')
+      _ -> Left [RuntimeError "Operands must be numbers" tok]
+    Plus -> case (left, right) of
+      (NumberValue n, NumberValue n') -> pure $ NumberValue (n + n')
+      (StringValue s, StringValue s') -> pure $ StringValue (s <> s')
+      _ -> Left [RuntimeError "Operands must be two numbers or two strings" tok]
+    Greater -> case (left, right) of
+      (NumberValue n, NumberValue n') -> pure $ BoolValue (n > n')
+      _ -> Left [RuntimeError "Operands must be numbers" tok]
+    GreaterEqual -> case (left, right) of
+      (NumberValue n, NumberValue n') -> pure $ BoolValue (n >= n')
+      _ -> Left [RuntimeError "Operands must be numbers" tok]
+    Less -> case (left, right) of
+      (NumberValue n, NumberValue n') -> pure $ BoolValue (n < n')
+      _ -> Left [RuntimeError "Operands must be numbers" tok]
+    LessEqual -> case (left, right) of
+      (NumberValue n, NumberValue n') -> pure $ BoolValue (n <= n')
+      _ -> Left [RuntimeError "Operands must be numbers" tok]
+    Equal -> pure $ BoolValue (left == right)
+    BangEqual -> pure $ BoolValue (left /= right)
+    _ -> Left [RuntimeError "Unknown binary operator, this is likely a parser error" tok]
+
+isTruthy :: LiteralValue -> Bool
+isTruthy (BoolValue value) = value
+isTruthy NilValue = False
+isTruthy _ = True
+
+printLiteral :: LiteralValue -> T.Text
+printLiteral (StringValue value) = T.pack $ show value
+printLiteral (NumberValue value) = T.pack $ show value
+printLiteral (BoolValue True) = "true"
+printLiteral (BoolValue False) = "false"
+printLiteral NilValue = "nil"
+
+printExpr :: Expr -> T.Text
+printExpr (Binary left (Token {tokenType = operator}) right) = "(" <> T.pack (show operator) <> " " <> printExpr left <> " " <> printExpr right <> ")"
+printExpr (Grouping expr) = "(group " <> printExpr expr <> ")"
+printExpr (Literal value) = printLiteral value
+printExpr (Unary (Token {tokenType = operator}) expr) = "(" <> T.pack (show operator) <> " " <> printExpr expr <> ")"

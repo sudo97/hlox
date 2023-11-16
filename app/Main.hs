@@ -5,17 +5,16 @@
 
 module Main where
 
-import AST (RuntimeError (RuntimeError), evaluate, printLiteral)
 import Control.Exception (catch)
 import Control.Monad ((>=>))
 import Data.Foldable (traverse_)
 import Data.Functor (($>))
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
-import FunctionalParser (parseExpr)
+import FunctionalParser (parseProgram)
 import GHC.IO.Handle (hFlush)
 import IdiomaticScanner (ScanError (..), Token (..), scanner)
-import Parser (LoxParseError (LoxParseError))
+import Parser (LoxParseError (LoxParseError), RuntimeError (RuntimeError), Stmt (..), printLiteral, runProgram)
 import System.Environment (getArgs)
 import System.Exit (exitFailure)
 import System.IO (hPutStrLn, stderr, stdout)
@@ -37,34 +36,27 @@ runPrompt = catch loop handler
       putStr "> "
       hFlush stdout
       line <- getLine
-      -- print line
       if null line
         then pure ()
         else do
-          errors <- run $ T.pack line
-          traverse_ report errors
+          run $ T.pack line
           loop
 
 runFile :: String -> IO ()
 runFile path = do
   file <- TIO.readFile path
-  errors <- run file
-  case errors of
-    [] -> pure ()
-    _ -> do
-      traverse_ report errors
-      exitFailure
+  run file
 
 data LoxError = ParseErr LoxParseError | ScanErr ScanError | RuntimeErr RuntimeError
 
-run :: T.Text -> IO [LoxError]
-run source = case scanner' >=> parseExpr' >=> evaluate' $ source of
-  Right value -> TIO.putStrLn (printLiteral value) $> []
-  Left e -> pure e
+run :: T.Text -> IO ()
+run source = do
+  case scanner' >=> parseProtam' $ source of
+    Right value -> runProgram value
+    Left e -> traverse_ report e
   where
     scanner' = mapLeft (ScanErr <$>) . scanner
-    parseExpr' = mapLeft (ParseErr <$>) . parseExpr
-    evaluate' = mapLeft (RuntimeErr <$>) . evaluate
+    parseProtam' = mapLeft (ParseErr <$>) . parseProgram
 
 mapLeft :: (a -> b) -> Either a c -> Either b c
 mapLeft f (Left a) = Left $ f a
