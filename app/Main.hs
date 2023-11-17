@@ -6,15 +6,14 @@
 module Main where
 
 import Control.Exception (catch)
-import Control.Monad ((>=>))
+import Control.Monad.State ((>=>))
 import Data.Foldable (traverse_)
-import Data.Functor (($>))
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import FunctionalParser (parseProgram)
 import GHC.IO.Handle (hFlush)
 import IdiomaticScanner (ScanError (..), Token (..), scanner)
-import Parser (LoxParseError (LoxParseError), RuntimeError (RuntimeError), Stmt (..), printLiteral, runProgram)
+import Parser (LoxParseError (LoxParseError), RuntimeError (RuntimeError), runProgram)
 import System.Environment (getArgs)
 import System.Exit (exitFailure)
 import System.IO (hPutStrLn, stderr, stdout)
