@@ -6,14 +6,16 @@
 module Main where
 
 import Control.Exception (catch)
-import Control.Monad.State ((>=>))
+import Control.Monad ((>=>))
+import Control.Monad.Except (MonadIO (liftIO))
 import Data.Foldable (traverse_)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
+import Eval
 import FunctionalParser (parseProgram)
 import GHC.IO.Handle (hFlush)
 import IdiomaticScanner (ScanError (..), Token (..), scanner)
-import Parser (LoxParseError (LoxParseError), RuntimeError (RuntimeError), runProgram)
+import Parser (LoxParseError (LoxParseError), RuntimeError (RuntimeError), Stmt)
 import System.Environment (getArgs)
 import System.Exit (exitFailure)
 import System.IO (hPutStrLn, stderr, stdout)
@@ -26,36 +28,44 @@ report (ParseErr (LoxParseError msg tok)) = case tok of
 report (RuntimeErr (RuntimeError message tok)) = hPutStrLn stderr $ "[line " ++ show (tok.line) ++ "] Error: " ++ message
 
 runPrompt :: IO ()
-runPrompt = catch loop handler
+runPrompt = go `catch` handler
   where
     handler :: IOError -> IO ()
     handler _ = putStrLn "\nBye!"
-    loop :: IO ()
+    go :: IO ()
+    go = do
+      result <- runEval loop
+      case result of
+        Left e -> report (RuntimeErr e) >> go
+        Right _ -> pure ()
+    loop :: Eval ()
     loop = do
-      putStr "> "
-      hFlush stdout
-      line <- getLine
-      if null line
+      liftIO $ putStr "> "
+      liftIO $ hFlush stdout
+      line <- liftIO TIO.getLine
+      if T.null line
         then pure ()
         else do
-          run $ T.pack line
+          case getAst line of
+            Left err -> liftIO $ traverse_ report err
+            Right ast -> traverse_ runStmt ast
           loop
 
 runFile :: String -> IO ()
 runFile path = do
   file <- TIO.readFile path
-  run file
+  case getAst file of
+    Right ast -> do
+      result <- runEval $ traverse_ runStmt ast
+      case result of
+        Left e -> report (RuntimeErr e)
+        Right _ -> pure ()
+    Left err -> traverse_ report err
 
 data LoxError = ParseErr LoxParseError | ScanErr ScanError | RuntimeErr RuntimeError
 
-run :: T.Text -> IO ()
-run source = do
-  case scanner' >=> parseProtam' $ source of
-    Right value -> runProgram value
-    Left e -> traverse_ report e
-  where
-    scanner' = mapLeft (ScanErr <$>) . scanner
-    parseProtam' = mapLeft (ParseErr <$>) . parseProgram
+getAst :: T.Text -> Either [LoxError] [Stmt]
+getAst = mapLeft (ScanErr <$>) . scanner >=> mapLeft (ParseErr <$>) . parseProgram
 
 mapLeft :: (a -> b) -> Either a c -> Either b c
 mapLeft f (Left a) = Left $ f a

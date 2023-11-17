@@ -24,8 +24,18 @@ type Parser a = Parsec [Token] () a
 -- > exprStmt  -> expression ";" ;
 -- > printStmt -> "print" expression ";" ;
 program :: Parser [Stmt]
-program = manyTill (statement <|> invalidStmt) eof'
+program = manyTill (declaration <|> invalidStmt) eof'
   where
+    declaration = varDecl <|> statement
+    varDecl = do
+      _ <- varTok
+      name <- identifierTok
+      expr <- optionMaybe (equal *> expression)
+      _ <- semicolon
+      pure $ case expr of
+        Just e -> VarDecl name e
+        Nothing -> VarDecl name (Literal NilValue)
+
     statement = expression' <|> printStmt
     expression' = Expression <$> (try expression <* semicolon)
     printStmt = Parser.Print <$> (printTok *> expression <* semicolon)
@@ -57,7 +67,7 @@ expression = equality
     term = factor `chainl1` (minus' <|> plus')
     factor = unary `chainl1` (slash' <|> star')
     unary = (Unary <$> (bang <|> minus) <*> unary) <|> primary
-    primary = number <|> stringP <|> bool <|> nil <|> grouping
+    primary = number <|> stringP <|> bool <|> nil <|> grouping <|> (Variable <$> identifierTok)
 
 parseExpr :: [Token] -> Either [P.LoxParseError] Expr
 parseExpr source = case parse expression "" source of
@@ -232,6 +242,24 @@ notSemicolon = token show posFromTok testTok
   where
     testTok (Token {tokenType = Semicolon}) = Nothing
     testTok t = Just t
+
+varTok :: Parser Token
+varTok = token show posFromTok testTok
+  where
+    testTok t@(Token {tokenType = Var}) = Just t
+    testTok _ = Nothing
+
+identifierTok :: Parser Token
+identifierTok = token show posFromTok testTok
+  where
+    testTok tok@(Token {tokenType = Identifier _}) = Just tok
+    testTok _ = Nothing
+
+equal :: Parser Token
+equal = token show posFromTok testTok
+  where
+    testTok t@(Token {tokenType = Equal}) = Just t
+    testTok _ = Nothing
 
 eof' :: Parser Token
 eof' = token show posFromTok testTok

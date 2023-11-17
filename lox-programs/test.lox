@@ -1,0 +1,9 @@
+print "====================================";
+print "Now we can parse whole files in lox:";
+var x = 13;
+var y = 14;
+print x - y;
+
+var hello = "Hello";
+var world = "world";
+print hello + " " + world + "!";
