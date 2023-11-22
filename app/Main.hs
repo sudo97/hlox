@@ -6,7 +6,7 @@
 module Main where
 
 import Control.Exception (catch)
-import Control.Monad ((>=>))
+import Control.Monad (unless, (>=>))
 import Control.Monad.Except (MonadIO (liftIO))
 import Data.Foldable (traverse_)
 import qualified Data.Text as T
@@ -48,13 +48,11 @@ runPrompt = go `catch` handler
       liftIO $ putStr "hlox> "
       liftIO $ hFlush stdout
       line <- liftIO TIO.getLine
-      if T.null line
-        then pure ()
-        else do
-          case getAst line of
-            Left err -> liftIO $ traverse_ report err
-            Right ast -> traverse_ runStmt ast
-          loop
+      unless (T.null line) $ do
+        case getAst line of
+          Left err -> liftIO $ traverse_ report err
+          Right ast -> traverse_ runStmt ast
+        loop
 
 runFile :: String -> IO ()
 runFile path = do
