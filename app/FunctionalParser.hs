@@ -60,8 +60,9 @@ program = manyTill (declaration <|> invalidStmt) eof'
 -- > primary    -> NUMBER | STRING | "true" | "false" | "nil"
 -- >               | "(" expression ")" ;
 expression :: Parser Expr
-expression = equality
+expression = assignment
   where
+    assignment = (Assign <$> identifierTok <*> (equal *> assignment)) <|> equality
     equality = comparison `chainl1` (bangEqual' <|> equalEqual') -- X ( op X )* => X `chainl1` op
     comparison = term `chainl1` (greater' <|> greaterEqual' <|> less' <|> lessEqual')
     term = factor `chainl1` (minus' <|> plus')

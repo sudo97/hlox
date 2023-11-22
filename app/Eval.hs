@@ -4,6 +4,7 @@ module Eval where
 
 import Control.Monad.Except
 import Control.Monad.State
+import Data.Functor (($>))
 import qualified Data.Map as M
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
@@ -81,6 +82,16 @@ evaluate (Binary leftExpr tok@(Token {tokenType = operator}) rightExpr) = do
     Equal -> pure $ BoolValue (left == right)
     BangEqual -> pure $ BoolValue (left /= right)
     _ -> throwError $ RuntimeError "Unknown binary operator, this is likely a parser error" tok
+evaluate (Assign (Token {tokenType = Identifier name}) expr) = do
+  value <- evaluate expr
+  currentValue <- gets (M.lookup name)
+  case currentValue of
+    Nothing ->
+      throwError $
+        RuntimeError ("Undefined variable '" <> T.unpack name <> "'") (Token {tokenType = EOF, line = 0, column = 0})
+    Just _ -> modify (M.insert name value) $> value
+evaluate (Assign _ _) =
+  error "This should never happen, some unhandled parsing error, this should actually have happened in the earlier stage"
 
 isTruthy :: LiteralValue -> Bool
 isTruthy (BoolValue value) = value
@@ -101,3 +112,5 @@ printExpr (Literal value) = printLiteral value
 printExpr (Unary (Token {tokenType = operator}) expr) = "(" <> T.pack (show operator) <> " " <> printExpr expr <> ")"
 printExpr (Variable (Token {tokenType = Identifier name})) = name
 printExpr (Variable _) = error "This should never happen, some unhandled parsing error, this should actually have happened in the earlier stage"
+printExpr (Assign (Token {tokenType = Identifier name}) expr) = "(set " <> name <> " " <> printExpr expr <> ")"
+printExpr (Assign _ _) = error "This should never happen, some unhandled parsing error, this should actually have happened in the earlier stage"

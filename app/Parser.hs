@@ -32,6 +32,7 @@ data Expr
   | Grouping Expr
   | Literal LiteralValue
   | Unary Token Expr
+  | Assign Token Expr
   | Variable Token
   deriving (Show, Eq)
 
