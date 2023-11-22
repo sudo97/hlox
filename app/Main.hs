@@ -20,12 +20,17 @@ import System.Environment (getArgs)
 import System.Exit (exitFailure)
 import System.IO (hPutStrLn, stderr, stdout)
 
-report :: LoxError -> IO ()
-report (ScanErr (ScanError {line, message, place})) = hPutStrLn stderr $ "[line " ++ show line ++ "] Error: " ++ show place ++ ": " ++ message
-report (ParseErr (LoxParseError msg tok)) = case tok of
-  Just (Token {line}) -> hPutStrLn stderr $ "[line " ++ show line ++ "] Error: " ++ msg
-  _ -> hPutStrLn stderr $ "Error: " ++ msg
-report (RuntimeErr (RuntimeError message tok)) = hPutStrLn stderr $ "[line " ++ show (tok.line) ++ "] Error: " ++ message
+data LoxError = ParseErr LoxParseError | ScanErr ScanError | RuntimeErr RuntimeError
+
+main :: IO ()
+main = do
+  args <- getArgs
+  case args of
+    [] -> runPrompt
+    [script] -> runFile script
+    _ -> do
+      putStrLn "Usage: hlox [script]"
+      exitFailure
 
 runPrompt :: IO ()
 runPrompt = go `catch` handler
@@ -40,7 +45,7 @@ runPrompt = go `catch` handler
         Right _ -> pure ()
     loop :: Eval ()
     loop = do
-      liftIO $ putStr "> "
+      liftIO $ putStr "hlox> "
       liftIO $ hFlush stdout
       line <- liftIO TIO.getLine
       if T.null line
@@ -62,8 +67,6 @@ runFile path = do
         Right _ -> pure ()
     Left err -> traverse_ report err
 
-data LoxError = ParseErr LoxParseError | ScanErr ScanError | RuntimeErr RuntimeError
-
 getAst :: T.Text -> Either [LoxError] [Stmt]
 getAst = mapLeft (ScanErr <$>) . scanner >=> mapLeft (ParseErr <$>) . parseProgram
 
@@ -71,12 +74,9 @@ mapLeft :: (a -> b) -> Either a c -> Either b c
 mapLeft f (Left a) = Left $ f a
 mapLeft _ (Right c) = Right c
 
-main :: IO ()
-main = do
-  args <- getArgs
-  case args of
-    [] -> runPrompt
-    [script] -> runFile script
-    _ -> do
-      putStrLn "Usage: hlox [script]"
-      exitFailure
+report :: LoxError -> IO ()
+report (ScanErr (ScanError {line, message, place})) = hPutStrLn stderr $ "[line " ++ show line ++ "] Error: " ++ show place ++ ": " ++ message
+report (ParseErr (LoxParseError msg tok)) = case tok of
+  Just (Token {line}) -> hPutStrLn stderr $ "[line " ++ show line ++ "] Error: " ++ msg
+  _ -> hPutStrLn stderr $ "Error: " ++ msg
+report (RuntimeErr (RuntimeError message tok)) = hPutStrLn stderr $ "[line " ++ show (tok.line) ++ "] Error: " ++ message
