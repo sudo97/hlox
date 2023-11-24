@@ -50,7 +50,9 @@ program = manyTill (declaration <|> invalidStmt) eof'
 
 -- | Compare this to the grammar from the book:
 --
--- > expression -> equality ;
+-- > expression -> assignment ;
+-- > assignment -> IDENTIFIER "=" assignment
+--                 | equality ;
 -- > equality   -> comparison ( ( "!=" | "==" ) comparison )* ;
 -- > comparison -> term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
 -- > term       -> factor ( ( "-" | "+" ) factor )* ;
@@ -62,7 +64,16 @@ program = manyTill (declaration <|> invalidStmt) eof'
 expression :: Parser Expr
 expression = assignment
   where
-    assignment = (Assign <$> identifierTok <*> (equal *> assignment)) <|> equality
+    assignment =
+      do
+        e <- equality
+        ( do
+            value <- equal *> assignment
+            case e of
+              Variable t@(Token {tokenType = Identifier _}) -> pure $ Assign t value
+              _ -> fail "Invalid assignment"
+          )
+          <|> pure e
     equality = comparison `chainl1` (bangEqual' <|> equalEqual') -- X ( op X )* => X `chainl1` op
     comparison = term `chainl1` (greater' <|> greaterEqual' <|> less' <|> lessEqual')
     term = factor `chainl1` (minus' <|> plus')
