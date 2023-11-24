@@ -16,11 +16,14 @@ type Parser a = Parsec [Token] () a
 
 -- | The grammar for the parser is now:
 -- >
--- > program   -> statement* EOF ;
+-- > program   -> declaration* EOF;
+-- > declaration -> varDecl | statement ;
 -- >
 -- > statement -> exprStmt
--- >              | printStmt ;
+-- >              | printStmt
+-- >              | block ;
 -- >
+-- > block     -> "{" declaration* "}" ;
 -- > exprStmt  -> expression ";" ;
 -- > printStmt -> "print" expression ";" ;
 program :: Parser [Stmt]
