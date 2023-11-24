@@ -2,8 +2,10 @@
 
 module Eval where
 
+import Control.Applicative ((<|>))
 import Control.Monad.Except
 import Control.Monad.State
+import Data.Foldable (traverse_)
 import Data.Functor (($>))
 import qualified Data.Map as M
 import qualified Data.Text as T
@@ -12,12 +14,19 @@ import IdiomaticScanner (Token (..))
 import Parser
 import Scanner (TokenType (..))
 
-type EvalContext = M.Map T.Text LiteralValue
+type Environment = [M.Map T.Text LiteralValue]
 
-type Eval a = StateT EvalContext (ExceptT RuntimeError IO) a
+lookupVariable :: T.Text -> Environment -> Maybe LiteralValue
+lookupVariable key = foldr (\env acc -> M.lookup key env <|> acc) Nothing
+
+insertVariable :: T.Text -> LiteralValue -> Environment -> Environment
+insertVariable key value [] = [M.singleton key value]
+insertVariable key value (env : envs) = M.insert key value env : envs
+
+type Eval a = StateT Environment (ExceptT RuntimeError IO) a
 
 runEval :: Eval a -> IO (Either RuntimeError a)
-runEval = runExceptT . flip evalStateT M.empty
+runEval = runExceptT . flip evalStateT []
 
 runStmt :: Stmt -> Eval ()
 runStmt (InvalidStmt e) = throwError $ RuntimeError ("This should never happen, some unhandled parsing error, this should actually have happened in the earlier stage" <> show e) (Token {tokenType = EOF, line = 0, column = 0})
@@ -29,15 +38,19 @@ runStmt (Expression expr) = do
   pure ()
 runStmt (VarDecl (Token {tokenType = Identifier name}) expr) = do
   value <- evaluate expr
-  modify $ M.insert name value
+  modify $ insertVariable name value
 runStmt (VarDecl _ _) = error "This should never happen, some unhandled parsing error, this should actually have happened in the earlier stage"
+runStmt (Block stmts) = do
+  modify (M.empty :)
+  traverse_ runStmt stmts
+  modify tail
 
 evaluate :: Expr -> Eval LiteralValue
 evaluate (Literal v) = pure v
 evaluate (Variable tok@(Token {tokenType = name})) = case name of
   (Identifier n) -> do
     context <- get
-    case M.lookup n context of
+    case lookupVariable n context of
       Just value -> pure value
       Nothing -> throwError $ RuntimeError ("Undefined variable '" <> T.unpack n <> "'") tok
   _ -> throwError $ RuntimeError "It was parsed as variable, but doesn't hold Identifier token, something is very wrong" tok
@@ -84,12 +97,12 @@ evaluate (Binary leftExpr tok@(Token {tokenType = operator}) rightExpr) = do
     _ -> throwError $ RuntimeError "Unknown binary operator, this is likely a parser error" tok
 evaluate (Assign (Token {tokenType = Identifier name}) expr) = do
   value <- evaluate expr
-  currentValue <- gets (M.lookup name)
+  currentValue <- gets (lookupVariable name)
   case currentValue of
     Nothing ->
       throwError $
         RuntimeError ("Undefined variable '" <> T.unpack name <> "'") (Token {tokenType = EOF, line = 0, column = 0})
-    Just _ -> modify (M.insert name value) $> value
+    Just _ -> modify (insertVariable name value) $> value
 evaluate (Assign _ _) =
   error "This should never happen, some unhandled parsing error, this should actually have happened in the earlier stage"
 

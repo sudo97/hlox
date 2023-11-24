@@ -36,7 +36,7 @@ program = manyTill (declaration <|> invalidStmt) eof'
         Just e -> VarDecl name e
         Nothing -> VarDecl name (Literal NilValue)
 
-    statement = expression' <|> printStmt
+    statement = expression' <|> printStmt <|> block
     expression' = Expression <$> (try expression <* semicolon)
     printStmt = Parser.Print <$> (printTok *> expression <* semicolon)
     invalidStmt = do
@@ -47,6 +47,7 @@ program = manyTill (declaration <|> invalidStmt) eof'
       case parse statement "" stm of
         Left err -> pure $ InvalidStmt (P.LoxParseError (show err) Nothing)
         Right _ -> error "This is impossible"
+    block = Block <$> (lbrace *> manyTill (declaration <|> invalidStmt) rbrace)
 
 -- | Compare this to the grammar from the book:
 --
@@ -283,6 +284,18 @@ equalEqual :: Parser Token
 equalEqual = token show posFromTok testTok
   where
     testTok t@(Token {tokenType = EqualEqual}) = Just t
+    testTok _ = Nothing
+
+lbrace :: Parser Token
+lbrace = token show posFromTok testTok
+  where
+    testTok t@(Token {tokenType = LeftBrace}) = Just t
+    testTok _ = Nothing
+
+rbrace :: Parser Token
+rbrace = token show posFromTok testTok
+  where
+    testTok t@(Token {tokenType = RightBrace}) = Just t
     testTok _ = Nothing
 
 posFromTok :: Token -> SourcePos

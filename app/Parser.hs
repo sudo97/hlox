@@ -25,6 +25,7 @@ data Stmt
   | Print Expr
   | VarDecl Token Expr
   | InvalidStmt LoxParseError
+  | Block [Stmt]
   deriving (Show, Eq)
 
 data Expr

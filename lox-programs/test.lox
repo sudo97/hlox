@@ -6,4 +6,9 @@ print x - y;
 
 var hello = "Hello";
 var world = "world";
+{
+    var hello = 43;
+    var world = 26;
+    print hello + world;
+}
 print hello + " " + world + "!";
