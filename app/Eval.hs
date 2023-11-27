@@ -94,6 +94,7 @@ evaluate (Binary leftExpr tok@(Token {tokenType = operator}) rightExpr) = do
       _ -> throwError $ RuntimeError "Operands must be numbers" tok
     Equal -> pure $ BoolValue (left == right)
     BangEqual -> pure $ BoolValue (left /= right)
+    EqualEqual -> pure $ BoolValue (left == right)
     _ -> throwError $ RuntimeError "Unknown binary operator, this is likely a parser error" tok
 evaluate (Assign (Token {tokenType = Identifier name}) expr) = do
   value <- evaluate expr
