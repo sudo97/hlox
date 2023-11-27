@@ -20,10 +20,15 @@ type Parser a = Parsec [Token] () a
 -- > declaration -> varDecl | statement ;
 -- >
 -- > statement -> exprStmt
+-- >              | forStmt
 -- >              | ifStmt
 -- >              | printStmt
 -- >              | whileStmt
 -- >              | block ;
+-- >
+-- > forStmt   -> "for" "(" ( varDecl | exprStmt | ";" )
+-- >              expression? ";"
+-- >              expression? ")" statement ;
 -- >
 -- > ifStmt    -> "if" "(" expression ")" statement
 -- >              ( "else" statement )? ;
@@ -46,7 +51,32 @@ program = manyTill (declaration <|> invalidStmt) eof'
         Just e -> VarDecl name e
         Nothing -> VarDecl name (Literal NilValue)
 
-    statement = expression' <|> ifStmt <|> printStmt <|> whileStmt <|> block
+    statement = expression' <|> forStmt <|> ifStmt <|> printStmt <|> whileStmt <|> block
+    forStmt = do
+      _ <- forTok
+      _ <- lparen
+      init' <- varDecl <|> expression'
+      cond <- optionMaybe expression
+      _ <- semicolon
+      each <- optionMaybe expression
+      rparen
+      body <- statement
+      pure $
+        Block
+          [ init',
+            Parser.While
+              ( case cond of
+                  Just c -> c
+                  _ -> Literal (BoolValue True)
+              )
+              ( Block
+                  [ body,
+                    case each of
+                      Just e -> Expression e
+                      Nothing -> Expression (Literal NilValue)
+                  ]
+              )
+          ]
     ifStmt = ifTok *> (Parser.If <$> expression <*> statement <*> optionMaybe (elseTok *> statement))
     whileStmt = whileTok *> (Parser.While <$> expression <*> statement)
     expression' = Expression <$> (try expression <* semicolon)
@@ -348,6 +378,12 @@ whileTok :: Parser Token
 whileTok = token show posFromTok testTok
   where
     testTok t@(Token {tokenType = Scanner.While}) = Just t
+    testTok _ = Nothing
+
+forTok :: Parser Token
+forTok = token show posFromTok testTok
+  where
+    testTok t@(Token {tokenType = Scanner.For}) = Just t
     testTok _ = Nothing
 
 posFromTok :: Token -> SourcePos
