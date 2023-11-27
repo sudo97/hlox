@@ -12,6 +12,7 @@ This project uses Cabal, a build system for Haskell. To run the project, follow 
 4. Run `cabal run` to execute the project.
 
 ## Current Progress
+
 These are the chapters from the book, I'll be using this to track progress:
 
 - [x] [Scanning](https://craftinginterpreters.com/scanning.html)
@@ -19,7 +20,7 @@ These are the chapters from the book, I'll be using this to track progress:
 - [x] [Parsing Expressions](https://craftinginterpreters.com/parsing-expressions.html)
 - [x] [Evaluating Expressions](https://craftinginterpreters.com/evaluating-expressions.html)
 - [x] [Statements and State](https://craftinginterpreters.com/statements-and-state.html)
-- [ ] [Control Flow](https://craftinginterpreters.com/control-flow.html)
+- [x] [Control Flow](https://craftinginterpreters.com/control-flow.html)
 - [ ] [Functions](https://craftinginterpreters.com/functions.html)
 - [ ] [Resolving and Binding](https://craftinginterpreters.com/resolving-and-binding.html)
 - [ ] [Classes](https://craftinginterpreters.com/classes.html)
