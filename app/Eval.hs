@@ -23,6 +23,12 @@ insertVariable :: T.Text -> LiteralValue -> Environment -> Environment
 insertVariable key value [] = [M.singleton key value]
 insertVariable key value (env : envs) = M.insert key value env : envs
 
+setVariable :: T.Text -> LiteralValue -> Environment -> Environment
+setVariable _ _ [] = []
+setVariable key value (env : envs) = case M.lookup key env of
+  Nothing -> env : setVariable key value envs
+  Just _ -> M.insert key value env : envs
+
 type Eval a = StateT Environment (ExceptT RuntimeError IO) a
 
 runEval :: Eval a -> IO (Either RuntimeError a)
@@ -103,7 +109,7 @@ evaluate (Assign (Token {tokenType = Identifier name}) expr) = do
     Nothing ->
       throwError $
         RuntimeError ("Undefined variable '" <> T.unpack name <> "'") (Token {tokenType = EOF, line = 0, column = 0})
-    Just _ -> modify (insertVariable name value) $> value
+    Just _ -> modify (setVariable name value) $> value
 evaluate (Assign _ _) =
   error "This should never happen, some unhandled parsing error, this should actually have happened in the earlier stage"
 
