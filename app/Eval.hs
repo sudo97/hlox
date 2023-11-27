@@ -5,7 +5,7 @@ module Eval where
 import Control.Applicative ((<|>))
 import Control.Monad.Except
 import Control.Monad.State
-import Data.Foldable (traverse_)
+import Data.Foldable (for_, traverse_)
 import Data.Functor (($>))
 import qualified Data.Map as M
 import qualified Data.Text as T
@@ -50,6 +50,16 @@ runStmt (Block stmts) = do
   modify (M.empty :)
   traverse_ runStmt stmts
   modify tail
+runStmt (Parser.If condition thenBranch elseBranch) = do
+  condition' <- evaluate condition
+  if isTruthy condition'
+    then runStmt thenBranch
+    else for_ elseBranch runStmt
+runStmt s@(Parser.While condition body) = do
+  condition' <- evaluate condition
+  when (isTruthy condition') $ do
+    runStmt body
+    runStmt s
 
 evaluate :: Expr -> Eval LiteralValue
 evaluate (Literal v) = pure v
@@ -112,6 +122,12 @@ evaluate (Assign (Token {tokenType = Identifier name}) expr) = do
     Just _ -> modify (setVariable name value) $> value
 evaluate (Assign _ _) =
   error "This should never happen, some unhandled parsing error, this should actually have happened in the earlier stage"
+evaluate (Logical leftExpr tok@(Token {tokenType = operator}) rightExpr) = do
+  left <- evaluate leftExpr
+  case operator of
+    Or -> if isTruthy left then pure left else evaluate rightExpr
+    And -> if isTruthy left then evaluate rightExpr else pure left
+    _ -> throwError $ RuntimeError "Unknown logical operator, this is likely a parser error. " tok
 
 isTruthy :: LiteralValue -> Bool
 isTruthy (BoolValue value) = value
@@ -134,3 +150,4 @@ printExpr (Variable (Token {tokenType = Identifier name})) = name
 printExpr (Variable _) = error "This should never happen, some unhandled parsing error, this should actually have happened in the earlier stage"
 printExpr (Assign (Token {tokenType = Identifier name}) expr) = "(set " <> name <> " " <> printExpr expr <> ")"
 printExpr (Assign _ _) = error "This should never happen, some unhandled parsing error, this should actually have happened in the earlier stage"
+printExpr (Logical left (Token {tokenType = operator}) right) = "(" <> T.pack (show operator) <> " " <> printExpr left <> " " <> printExpr right <> ")"

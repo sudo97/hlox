@@ -26,10 +26,13 @@ data Stmt
   | VarDecl Token Expr
   | InvalidStmt LoxParseError
   | Block [Stmt]
+  | If Expr Stmt (Maybe Stmt)
+  | While Expr Stmt
   deriving (Show, Eq)
 
 data Expr
   = Binary Expr Token Expr
+  | Logical Expr Token Expr
   | Grouping Expr
   | Literal LiteralValue
   | Unary Token Expr

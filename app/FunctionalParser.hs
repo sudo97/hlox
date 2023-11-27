@@ -20,8 +20,15 @@ type Parser a = Parsec [Token] () a
 -- > declaration -> varDecl | statement ;
 -- >
 -- > statement -> exprStmt
+-- >              | ifStmt
 -- >              | printStmt
+-- >              | whileStmt
 -- >              | block ;
+-- >
+-- > ifStmt    -> "if" "(" expression ")" statement
+-- >              ( "else" statement )? ;
+-- >
+-- > whileStmt -> "while" "(" expression ")" statement ;
 -- >
 -- > block     -> "{" declaration* "}" ;
 -- > exprStmt  -> expression ";" ;
@@ -39,7 +46,9 @@ program = manyTill (declaration <|> invalidStmt) eof'
         Just e -> VarDecl name e
         Nothing -> VarDecl name (Literal NilValue)
 
-    statement = expression' <|> printStmt <|> block
+    statement = expression' <|> ifStmt <|> printStmt <|> whileStmt <|> block
+    ifStmt = ifTok *> (Parser.If <$> expression <*> statement <*> optionMaybe (elseTok *> statement))
+    whileStmt = whileTok *> (Parser.While <$> expression <*> statement)
     expression' = Expression <$> (try expression <* semicolon)
     printStmt = Parser.Print <$> (printTok *> expression <* semicolon)
     invalidStmt = do
@@ -52,25 +61,27 @@ program = manyTill (declaration <|> invalidStmt) eof'
         Right _ -> error "This is impossible"
     block = Block <$> (lbrace *> manyTill (declaration <|> invalidStmt) rbrace)
 
--- | Compare this to the grammar from the book:
---
--- > expression -> assignment ;
--- > assignment -> IDENTIFIER "=" assignment
---                 | equality ;
--- > equality   -> comparison ( ( "!=" | "==" ) comparison )* ;
--- > comparison -> term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
--- > term       -> factor ( ( "-" | "+" ) factor )* ;
--- > factor     -> unary ( ( "/" | "*" ) unary )* ;
--- > unary      -> ( "!" | "-" ) unary
--- >               | primary ;
--- > primary    -> NUMBER | STRING | "true" | "false" | "nil"
--- >               | "(" expression ")" ;
+-- | The grammar for the parser is now:
+-- >
+-- > expression     -> assignment ;
+-- > assignment     -> IDENTIFIER "=" assignment
+-- >                | logic_or ;
+-- > logic_or       -> logic_and ( "or" logic_and )* ;
+-- > logic_and      -> equality ( "and" equality )* ;
+-- > equality       -> comparison ( ( "!=" | "==" ) comparison )* ;
+-- > comparison     -> term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
+-- > term           -> factor ( ( "-" | "+" ) factor )* ;
+-- > factor         -> unary ( ( "/" | "*" ) unary )* ;
+-- > unary          -> ( "!" | "-" ) unary
+-- >                | primary ;
+-- > primary        -> NUMBER | STRING | "true" | "false" | "nil"
+-- >                | "(" expression ")" ;
 expression :: Parser Expr
 expression = assignment
   where
     assignment =
       do
-        e <- equality
+        e <- logicalOr
         ( do
             value <- equal *> assignment
             case e of
@@ -78,6 +89,8 @@ expression = assignment
               _ -> fail "Invalid assignment"
           )
           <|> pure e
+    logicalOr = logicalAnd `chainl1` or'
+    logicalAnd = equality `chainl1` and'
     equality = comparison `chainl1` (bangEqual' <|> equalEqual') -- X ( op X )* => X `chainl1` op
     comparison = term `chainl1` (greater' <|> greaterEqual' <|> less' <|> lessEqual')
     term = factor `chainl1` (minus' <|> plus')
@@ -139,6 +152,12 @@ minus' = flip Binary <$> minus
 
 plus' :: Parser (Expr -> Expr -> Expr)
 plus' = flip Binary <$> plus
+
+and' :: Parser (Expr -> Expr -> Expr)
+and' = flip Logical <$> andTok
+
+or' :: Parser (Expr -> Expr -> Expr)
+or' = flip Logical <$> orTok
 
 number :: Parser Expr
 number = token showNumber posFromTok testTok
@@ -299,6 +318,36 @@ rbrace :: Parser Token
 rbrace = token show posFromTok testTok
   where
     testTok t@(Token {tokenType = RightBrace}) = Just t
+    testTok _ = Nothing
+
+ifTok :: Parser Token
+ifTok = token show posFromTok testTok
+  where
+    testTok t@(Token {tokenType = Scanner.If}) = Just t
+    testTok _ = Nothing
+
+elseTok :: Parser Token
+elseTok = token show posFromTok testTok
+  where
+    testTok t@(Token {tokenType = Else}) = Just t
+    testTok _ = Nothing
+
+andTok :: Parser Token
+andTok = token show posFromTok testTok
+  where
+    testTok t@(Token {tokenType = And}) = Just t
+    testTok _ = Nothing
+
+orTok :: Parser Token
+orTok = token show posFromTok testTok
+  where
+    testTok t@(Token {tokenType = Or}) = Just t
+    testTok _ = Nothing
+
+whileTok :: Parser Token
+whileTok = token show posFromTok testTok
+  where
+    testTok t@(Token {tokenType = Scanner.While}) = Just t
     testTok _ = Nothing
 
 posFromTok :: Token -> SourcePos
