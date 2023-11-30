@@ -29,6 +29,7 @@ data Stmt
   | Block [Stmt]
   | If Expr Stmt (Maybe Stmt)
   | While Expr Stmt
+  | Return Expr
   deriving (Show, Eq)
 
 data Expr
@@ -51,10 +52,12 @@ data LiteralValue
   | Time UTCTime
   deriving (Show, Eq)
 
-data RuntimeError = RuntimeError
-  { message :: String,
-    token :: Token
-  }
+data RuntimeError
+  = RuntimeError
+      { message :: String,
+        token :: Token
+      }
+  | HackyReturnValue LiteralValue
   deriving (Show, Eq)
 
 -- As with Scanner, we'll be making stateful

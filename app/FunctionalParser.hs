@@ -3,6 +3,7 @@
 module FunctionalParser where
 
 import Data.List (foldl', partition)
+import Data.Maybe (fromMaybe)
 import qualified Data.Text as T
 import IdiomaticScanner (Token (..), scanner)
 import Parser (Expr (..), LiteralValue (..), Stmt (..))
@@ -62,7 +63,8 @@ program = manyTill (declaration <|> invalidStmt) eof'
         Just e -> VarDecl name e
         Nothing -> VarDecl name (Literal NilValue)
 
-    statement = expression' <|> forStmt <|> ifStmt <|> printStmt <|> whileStmt <|> block
+    statement = expression' <|> forStmt <|> ifStmt <|> printStmt <|> returnStmt <|> whileStmt <|> block
+    returnStmt = returnTok *> (Parser.Return <$> (fromMaybe (Literal NilValue) <$> optionMaybe expression) <* semicolon)
     forStmt = do
       _ <- forTok
       _ <- lparen
@@ -416,6 +418,12 @@ funTok :: Parser Token
 funTok = token show posFromTok testTok
   where
     testTok t@(Token {tokenType = Scanner.Fun}) = Just t
+    testTok _ = Nothing
+
+returnTok :: Parser Token
+returnTok = token show posFromTok testTok
+  where
+    testTok t@(Token {tokenType = Scanner.Return}) = Just t
     testTok _ = Nothing
 
 posFromTok :: Token -> SourcePos

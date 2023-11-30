@@ -5,6 +5,7 @@
 module Eval where
 
 import Control.Applicative ((<|>))
+import Control.Exception (catch)
 import Control.Monad.Except
 import Control.Monad.State
 import Data.Foldable (for_, traverse_)
@@ -58,6 +59,9 @@ runStmt (Parser.If condition thenBranch elseBranch) = do
   if isTruthy condition'
     then runStmt thenBranch
     else for_ elseBranch runStmt
+runStmt (Parser.Return e) = do
+  val <- evaluate e
+  throwError $ HackyReturnValue val
 runStmt s@(Parser.While condition body) = do
   condition' <- evaluate condition
   when (isTruthy condition') $ do
@@ -165,9 +169,13 @@ call ((Parser.Fun vars body)) args tok = do
       )
       vars
   modify ((M.fromList $ zip vars' args) :)
-  traverse_ runStmt body
+  result <-
+    (traverse runStmt body $> NilValue) `catchError` \case
+      HackyReturnValue value -> do
+        pure value
+      e -> throwError e
   modify tail
-  pure NilValue
+  pure result
 call _ _ tok = throwError $ RuntimeError "Non-callable value" tok
 
 isTruthy :: LiteralValue -> Bool
