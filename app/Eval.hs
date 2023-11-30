@@ -146,6 +146,7 @@ evaluate (Call callee rparen args) = do
       callee' <- evaluate callee
       args' <- traverse evaluate args
       call name callee' args' rparen
+    _ -> throwError $ RuntimeError "Can only call functions and classes" rparen
 
 clock :: Eval LiteralValue
 clock = Time <$> liftIO getCurrentTime
