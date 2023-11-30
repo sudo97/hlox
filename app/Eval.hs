@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE TypeApplications #-}
 
@@ -156,8 +157,16 @@ call ((Parser.Fun vars body)) args tok = do
             <> show (length args)
         )
         tok
-  modify ((M.fromList $ zip vars args) :)
+  vars' <-
+    traverse
+      ( \case
+          (Token {tokenType = Identifier name}) -> pure name
+          _ -> throwError $ RuntimeError "Vars list of the function contains something that is not identifier. This shouldn't have parsed" tok
+      )
+      vars
+  modify ((M.fromList $ zip vars' args) :)
   traverse_ runStmt body
+  modify tail
   pure NilValue
 call _ _ tok = throwError $ RuntimeError "Non-callable value" tok
 
@@ -173,7 +182,7 @@ printLiteral (BoolValue True) = "true"
 printLiteral (BoolValue False) = "false"
 printLiteral NilValue = "nil"
 printLiteral (Time t) = T.pack $ show t
-printLiteral (Parser.Fun expr _) = "fun(" <> T.intercalate ", " expr <> ") { ... }"
+printLiteral (Parser.Fun expr _) = "fun(" <> T.intercalate ", " ((\Token {tokenType = Identifier name} -> name) <$> expr) <> ") { ... }"
 
 printExpr :: Expr -> T.Text
 printExpr (Binary left (Token {tokenType = operator}) right) = "(" <> T.pack (show operator) <> " " <> printExpr left <> " " <> printExpr right <> ")"

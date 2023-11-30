@@ -17,7 +17,12 @@ type Parser a = Parsec [Token] () a
 -- | The grammar for the parser is now:
 -- >
 -- > program   -> declaration* EOF;
--- > declaration -> varDecl | statement ;
+-- > declaration -> funDecl
+-- >              | varDecl
+-- >              | statement ;
+-- > funDecl   -> "fun" function;
+-- > function    -> IDENTIFIER "(" parameters? ")" block;
+-- > parameters  -> IDENTIFIER ( "," IDENTIFIER )* ;
 -- >
 -- > statement -> exprStmt
 -- >              | forStmt
@@ -41,7 +46,13 @@ type Parser a = Parsec [Token] () a
 program :: Parser [Stmt]
 program = manyTill (declaration <|> invalidStmt) eof'
   where
-    declaration = varDecl <|> statement
+    declaration = funDecl <|> varDecl <|> statement
+    funDecl = do
+      _ <- funTok
+      name <- identifierTok
+      vars <- lparen *> identifierTok `sepBy` commaTok <* rparen
+      Block b <- block
+      pure $ VarDecl name $ Literal $ Parser.Fun vars b
     varDecl = do
       _ <- varTok
       name <- identifierTok
@@ -399,6 +410,12 @@ commaTok :: Parser Token
 commaTok = token show posFromTok testTok
   where
     testTok t@(Token {tokenType = Comma}) = Just t
+    testTok _ = Nothing
+
+funTok :: Parser Token
+funTok = token show posFromTok testTok
+  where
+    testTok t@(Token {tokenType = Scanner.Fun}) = Just t
     testTok _ = Nothing
 
 posFromTok :: Token -> SourcePos

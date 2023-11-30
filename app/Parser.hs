@@ -47,7 +47,7 @@ data LiteralValue
   | NumberValue Double
   | BoolValue Bool
   | NilValue
-  | Fun [T.Text] [Stmt]
+  | Fun [Token] [Stmt]
   | Time UTCTime
   deriving (Show, Eq)
 
