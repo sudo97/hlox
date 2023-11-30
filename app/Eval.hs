@@ -5,7 +5,6 @@
 module Eval where
 
 import Control.Applicative ((<|>))
-import Control.Exception (catch)
 import Control.Monad.Except
 import Control.Monad.State
 import Data.Foldable (for_, traverse_)
