@@ -9,6 +9,7 @@ module Parser where
 import Control.Monad.Except
 import Control.Monad.State
 import Data.Functor (($>))
+import qualified Data.Map as M
 import Data.Sequence (Seq, fromList, (!?))
 import qualified Data.Text as T
 import Data.Time (UTCTime)
@@ -25,6 +26,7 @@ data Stmt
   = Expression Expr
   | Print Expr
   | VarDecl Token Expr
+  | FunDecl Token [Token] [Stmt]
   | InvalidStmt LoxParseError
   | Block [Stmt]
   | If Expr Stmt (Maybe Stmt)
@@ -48,9 +50,11 @@ data LiteralValue
   | NumberValue Double
   | BoolValue Bool
   | NilValue
-  | Fun [Token] [Stmt]
+  | Fun [Token] [Stmt] Environment
   | Time UTCTime
   deriving (Show, Eq)
+
+type Environment = [M.Map T.Text LiteralValue]
 
 data RuntimeError
   = RuntimeError

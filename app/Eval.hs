@@ -17,8 +17,6 @@ import IdiomaticScanner (Token (..))
 import Parser
 import Scanner (TokenType (..))
 
-type Environment = [M.Map T.Text LiteralValue]
-
 lookupVariable :: T.Text -> Environment -> Maybe LiteralValue
 lookupVariable key = foldr (\env acc -> M.lookup key env <|> acc) Nothing
 
@@ -49,6 +47,9 @@ runStmt (VarDecl (Token {tokenType = Identifier name}) expr) = do
   value <- evaluate expr
   modify $ insertVariable name value
 runStmt (VarDecl _ _) = error "This should never happen, some unhandled parsing error, this should actually have happened in the earlier stage"
+runStmt (FunDecl (Token {tokenType = Identifier name}) args body) = do
+  modify $ \e -> insertVariable name (Parser.Fun args body e) e
+runStmt (FunDecl {}) = error "This should never happen, some unhandled parsing error, this should actually have happened in the earlier stage"
 runStmt (Block stmts) = do
   modify (M.empty :)
   traverse_ runStmt stmts
@@ -141,16 +142,16 @@ evaluate (Call callee rparen args) = do
       RuntimeError "Cannot have more than 255 arguments" rparen
   case callee of
     Variable (Token {tokenType = Identifier "clock"}) -> clock
-    _ -> do
+    Variable (Token {tokenType = Identifier name}) -> do
       callee' <- evaluate callee
       args' <- traverse evaluate args
-      call callee' args' rparen
+      call name callee' args' rparen
 
 clock :: Eval LiteralValue
 clock = Time <$> liftIO getCurrentTime
 
-call :: LiteralValue -> [LiteralValue] -> Token -> Eval LiteralValue
-call ((Parser.Fun vars body)) args tok = do
+call :: T.Text -> LiteralValue -> [LiteralValue] -> Token -> Eval LiteralValue
+call functionName ((Parser.Fun vars body closure)) args tok = do
   when (length args /= length vars) $
     throwError $
       RuntimeError
@@ -167,15 +168,18 @@ call ((Parser.Fun vars body)) args tok = do
           _ -> throwError $ RuntimeError "Vars list of the function contains something that is not identifier. This shouldn't have parsed" tok
       )
       vars
-  modify ((M.fromList $ zip vars' args) :)
+  oldEnv <- get
+  put (M.fromList (zip vars' args) : closure)
   result <-
     (traverse runStmt body $> NilValue) `catchError` \case
       HackyReturnValue value -> do
         pure value
       e -> throwError e
-  modify tail
+  envAfterExec <- get
+  put oldEnv
+  modify $ setVariable functionName (Parser.Fun vars body envAfterExec)
   pure result
-call _ _ tok = throwError $ RuntimeError "Non-callable value" tok
+call _ _ _ tok = throwError $ RuntimeError "Non-callable value" tok
 
 isTruthy :: LiteralValue -> Bool
 isTruthy (BoolValue value) = value
@@ -189,7 +193,7 @@ printLiteral (BoolValue True) = "true"
 printLiteral (BoolValue False) = "false"
 printLiteral NilValue = "nil"
 printLiteral (Time t) = T.pack $ show t
-printLiteral (Parser.Fun expr _) = "fun(" <> T.intercalate ", " ((\Token {tokenType = Identifier name} -> name) <$> expr) <> ") { ... }"
+printLiteral (Parser.Fun expr _ _) = "fun(" <> T.intercalate ", " ((\Token {tokenType = Identifier name} -> name) <$> expr) <> ") { ... }"
 
 printExpr :: Expr -> T.Text
 printExpr (Binary left (Token {tokenType = operator}) right) = "(" <> T.pack (show operator) <> " " <> printExpr left <> " " <> printExpr right <> ")"

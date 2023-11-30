@@ -53,7 +53,7 @@ program = manyTill (declaration <|> invalidStmt) eof'
       name <- identifierTok
       vars <- lparen *> identifierTok `sepBy` commaTok <* rparen
       Block b <- block
-      pure $ VarDecl name $ Literal $ Parser.Fun vars b
+      pure $ FunDecl name vars b
     varDecl = do
       _ <- varTok
       name <- identifierTok
