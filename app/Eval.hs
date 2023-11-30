@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE TypeApplications #-}
 
 module Eval where
 
@@ -10,6 +11,7 @@ import Data.Functor (($>))
 import qualified Data.Map as M
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
+import Data.Time (diffUTCTime, getCurrentTime)
 import IdiomaticScanner (Token (..))
 import Parser
 import Scanner (TokenType (..))
@@ -85,6 +87,7 @@ evaluate (Binary leftExpr tok@(Token {tokenType = operator}) rightExpr) = do
   case operator of
     Minus -> case (left, right) of
       (NumberValue n, NumberValue n') -> pure $ NumberValue (n - n')
+      (Time t, Time t') -> pure . NumberValue . fromIntegral @Integer . round $ diffUTCTime t t'
       _ -> throwError $ RuntimeError "Operands must be numbers" tok
     Slash -> case (left, right) of
       (NumberValue n, NumberValue n') -> pure $ NumberValue (n / n')
@@ -128,6 +131,35 @@ evaluate (Logical leftExpr tok@(Token {tokenType = operator}) rightExpr) = do
     Or -> if isTruthy left then pure left else evaluate rightExpr
     And -> if isTruthy left then evaluate rightExpr else pure left
     _ -> throwError $ RuntimeError "Unknown logical operator, this is likely a parser error. " tok
+evaluate (Call callee rparen args) = do
+  when (length args >= 255) $ -- NOTE: The book does this during parsing, but only warns user, and keeps going, I don't wanna do that in the parser
+    throwError $
+      RuntimeError "Cannot have more than 255 arguments" rparen
+  case callee of
+    Variable (Token {tokenType = Identifier "clock"}) -> clock
+    _ -> do
+      callee' <- evaluate callee
+      args' <- traverse evaluate args
+      call callee' args' rparen
+
+clock :: Eval LiteralValue
+clock = Time <$> liftIO getCurrentTime
+
+call :: LiteralValue -> [LiteralValue] -> Token -> Eval LiteralValue
+call ((Parser.Fun vars body)) args tok = do
+  when (length args /= length vars) $
+    throwError $
+      RuntimeError
+        ( "Wrong number of arguments. Expected: "
+            <> show (length vars)
+            <> ", recieved: "
+            <> show (length args)
+        )
+        tok
+  modify ((M.fromList $ zip vars args) :)
+  traverse_ runStmt body
+  pure NilValue
+call _ _ tok = throwError $ RuntimeError "Non-callable value" tok
 
 isTruthy :: LiteralValue -> Bool
 isTruthy (BoolValue value) = value
@@ -140,6 +172,8 @@ printLiteral (NumberValue value) = T.pack $ show value
 printLiteral (BoolValue True) = "true"
 printLiteral (BoolValue False) = "false"
 printLiteral NilValue = "nil"
+printLiteral (Time t) = T.pack $ show t
+printLiteral (Parser.Fun expr _) = "fun(" <> T.intercalate ", " expr <> ") { ... }"
 
 printExpr :: Expr -> T.Text
 printExpr (Binary left (Token {tokenType = operator}) right) = "(" <> T.pack (show operator) <> " " <> printExpr left <> " " <> printExpr right <> ")"
@@ -151,3 +185,4 @@ printExpr (Variable _) = error "This should never happen, some unhandled parsing
 printExpr (Assign (Token {tokenType = Identifier name}) expr) = "(set " <> name <> " " <> printExpr expr <> ")"
 printExpr (Assign _ _) = error "This should never happen, some unhandled parsing error, this should actually have happened in the earlier stage"
 printExpr (Logical left (Token {tokenType = operator}) right) = "(" <> T.pack (show operator) <> " " <> printExpr left <> " " <> printExpr right <> ")"
+printExpr (Call callee _ args) = "(" <> printExpr callee <> " " <> T.intercalate " " (printExpr <$> args) <> ")"

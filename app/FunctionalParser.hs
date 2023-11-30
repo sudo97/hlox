@@ -2,7 +2,7 @@
 
 module FunctionalParser where
 
-import Data.List (partition)
+import Data.List (foldl', partition)
 import qualified Data.Text as T
 import IdiomaticScanner (Token (..), scanner)
 import Parser (Expr (..), LiteralValue (..), Stmt (..))
@@ -59,7 +59,7 @@ program = manyTill (declaration <|> invalidStmt) eof'
       cond <- optionMaybe expression
       _ <- semicolon
       each <- optionMaybe expression
-      rparen
+      _ <- rparen
       body <- statement
       pure $
         Block
@@ -103,7 +103,9 @@ program = manyTill (declaration <|> invalidStmt) eof'
 -- > term           -> factor ( ( "-" | "+" ) factor )* ;
 -- > factor         -> unary ( ( "/" | "*" ) unary )* ;
 -- > unary          -> ( "!" | "-" ) unary
--- >                | primary ;
+-- >                | call ;
+-- > call           -> primary ( "(" arguments? ")" )* ;
+-- > arguments      -> expression ( "," expression )* ;
 -- > primary        -> NUMBER | STRING | "true" | "false" | "nil"
 -- >                | "(" expression ")" ;
 expression :: Parser Expr
@@ -125,7 +127,14 @@ expression = assignment
     comparison = term `chainl1` (greater' <|> greaterEqual' <|> less' <|> lessEqual')
     term = factor `chainl1` (minus' <|> plus')
     factor = unary `chainl1` (slash' <|> star')
-    unary = (Unary <$> (bang <|> minus) <*> unary) <|> primary
+    unary = (Unary <$> (bang <|> minus) <*> unary) <|> call
+    call = do
+      p <- primary
+      args <- many ((,) <$> (lparen *> arguments) <*> rparen)
+      pure $ case args of
+        [] -> p
+        _ -> foldl' (\acc (args', pos) -> Call acc pos args') p args
+    arguments = expression `sepBy` commaTok
     primary = number <|> stringP <|> bool <|> nil <|> grouping <|> (Variable <$> identifierTok)
 
 parseExpr :: [Token] -> Either [P.LoxParseError] Expr
@@ -224,10 +233,10 @@ lparen = token show posFromTok testTok
     testTok (Token {tokenType = LeftParen}) = Just ()
     testTok _ = Nothing
 
-rparen :: Parser ()
+rparen :: Parser Token
 rparen = token show posFromTok testTok
   where
-    testTok (Token {tokenType = RightParen}) = Just ()
+    testTok tok@(Token {tokenType = RightParen}) = Just tok
     testTok _ = Nothing
 
 bang :: Parser Token
@@ -384,6 +393,12 @@ forTok :: Parser Token
 forTok = token show posFromTok testTok
   where
     testTok t@(Token {tokenType = Scanner.For}) = Just t
+    testTok _ = Nothing
+
+commaTok :: Parser Token
+commaTok = token show posFromTok testTok
+  where
+    testTok t@(Token {tokenType = Comma}) = Just t
     testTok _ = Nothing
 
 posFromTok :: Token -> SourcePos

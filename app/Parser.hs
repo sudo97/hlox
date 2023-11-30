@@ -11,6 +11,7 @@ import Control.Monad.State
 import Data.Functor (($>))
 import Data.Sequence (Seq, fromList, (!?))
 import qualified Data.Text as T
+import Data.Time (UTCTime)
 import IdiomaticScanner (Token (..))
 import Scanner (TokenType (..))
 
@@ -38,6 +39,22 @@ data Expr
   | Unary Token Expr
   | Assign Token Expr
   | Variable Token
+  | Call Expr Token [Expr]
+  deriving (Show, Eq)
+
+data LiteralValue
+  = StringValue String
+  | NumberValue Double
+  | BoolValue Bool
+  | NilValue
+  | Fun [T.Text] [Stmt]
+  | Time UTCTime
+  deriving (Show, Eq)
+
+data RuntimeError = RuntimeError
+  { message :: String,
+    token :: Token
+  }
   deriving (Show, Eq)
 
 -- As with Scanner, we'll be making stateful
@@ -173,16 +190,3 @@ peek = do
 
 parse :: [Token] -> Either LoxParseError Expr
 parse tokens = evalStateT expression ParserState {tokens = fromList tokens, current = 0}
-
-data LiteralValue
-  = StringValue String
-  | NumberValue Double
-  | BoolValue Bool
-  | NilValue
-  deriving (Show, Eq)
-
-data RuntimeError = RuntimeError
-  { message :: String,
-    token :: Token
-  }
-  deriving (Show, Eq)
