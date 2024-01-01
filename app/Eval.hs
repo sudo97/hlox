@@ -48,7 +48,7 @@ runStmt (VarDecl (Token {tokenType = Identifier name}) expr) = do
   modify $ insertVariable name value
 runStmt (VarDecl _ _) = error "This should never happen, some unhandled parsing error, this should actually have happened in the earlier stage"
 runStmt (FunDecl (Token {tokenType = Identifier name}) args body) = do
-  modify $ \e -> insertVariable name (Parser.Fun args body e) e
+  modify $ \e -> let e' = insertVariable name (Parser.Fun args body e') e in e'
 runStmt (FunDecl {}) = error "This should never happen, some unhandled parsing error, this should actually have happened in the earlier stage"
 runStmt (Block stmts) = do
   modify (M.empty :)
