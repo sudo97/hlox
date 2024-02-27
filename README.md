@@ -27,7 +27,7 @@ These are the chapters from the book, I'll be using this to track progress:
 - [x] [Control Flow](https://craftinginterpreters.com/control-flow.html)
 - [x] [Functions](https://craftinginterpreters.com/functions.html)
 - [x] [Resolving and Binding](https://craftinginterpreters.com/resolving-and-binding.html) (Won't do resolving, since my implementation works properly already)
-- [ ] ~~~[Classes](https://craftinginterpreters.com/classes.html)~~~ The book says I can skip it if I don't like writing classes, and I don't!!!
-- [ ] ~~~[Inheritance](https://craftinginterpreters.com/inheritance.html)~~~
+- [ ] ~~[Classes](https://craftinginterpreters.com/classes.html)~~ The book says I can skip it if I don't like writing classes, and I don't!!!
+- [ ] ~~[Inheritance](https://craftinginterpreters.com/inheritance.html)~~
 
 Moving on to the JIT part in Rust!
